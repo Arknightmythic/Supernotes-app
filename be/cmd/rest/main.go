@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
 )
 
@@ -20,6 +21,8 @@ func main() {
 	})
 
 	app.Use(serverutils.ErrorHandlerMiddleware())
+
+	app.Use(cors.New())
 
 	db := database.ConnectDB(os.Getenv("DB_CONNECTION_STRING"))
 

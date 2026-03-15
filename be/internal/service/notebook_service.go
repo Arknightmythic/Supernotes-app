@@ -162,7 +162,7 @@ func (c *notebookService) MoveNotebook(ctx context.Context, req *dto.MoveNoteboo
 		}
 	}
 
-	c.notebookRepository.UpdateParentId(ctx, req.Id, req.ParentId)
+	err = c.notebookRepository.UpdateParentId(ctx, req.Id, req.ParentId)
 	if err != nil {
 		return nil, err
 	}

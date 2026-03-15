@@ -45,7 +45,7 @@ func (n *notebookRepository) GetAll(ctx context.Context) ([]*entity.Notebook, er
 
 	for rows.Next(){
 		var notebook entity.Notebook
-		rows.Scan(
+		err := rows.Scan(
 			&notebook.Id,
 			&notebook.Name,
 			&notebook.ParentId,

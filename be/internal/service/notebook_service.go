@@ -14,7 +14,7 @@ import (
 
 type INotebookService interface {
 	Create(ctx context.Context, req *dto.CreateNotebookRequest) (*dto.CreateNotebookResponse, error)
-	GetAll(ctx context.Context ) ([]*dto.GetAllNotebookResponses, error)
+	GetAll(ctx context.Context) ([]*dto.GetAllNotebookResponses, error)
 	Show(ctx context.Context, id uuid.UUID) (*dto.ShowNotebookResponse, error)
 	Update(ctx context.Context, req *dto.UpdateNotebookRequest) (*dto.UpdateNotebookResponse, error)
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -23,35 +23,58 @@ type INotebookService interface {
 
 type notebookService struct {
 	notebookRepository repository.INotebookRepository
+	noteRepository     repository.INoteRepository
 	db                 *pgxpool.Pool
 }
 
-func NewNotebookService(notebookRepository repository.INotebookRepository, db *pgxpool.Pool) INotebookService {
+func NewNotebookService(notebookRepository repository.INotebookRepository, noteRepository repository.INoteRepository, db *pgxpool.Pool) INotebookService {
 	return &notebookService{
 		notebookRepository: notebookRepository,
+		noteRepository:     noteRepository,
 		db:                 db,
 	}
 }
 
-func (c *notebookService) GetAll(ctx context.Context ) ([]*dto.GetAllNotebookResponses, error){
+func (c *notebookService) GetAll(ctx context.Context) ([]*dto.GetAllNotebookResponses, error) {
 
 	notebooks, err := c.notebookRepository.GetAll(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	ids := make([]uuid.UUID, 0)
 	result := make([]*dto.GetAllNotebookResponses, 0)
 
-	for _, notebook := range notebooks{
+	for _, notebook := range notebooks {
 		res := dto.GetAllNotebookResponses{
-			Id: notebook.Id,
-			Name: notebook.Name,
-			ParentId: notebook.ParentId,
+			Id:        notebook.Id,
+			Name:      notebook.Name,
+			ParentId:  notebook.ParentId,
 			CreatedAt: notebook.CreatedAt,
 			UpdatedAt: notebook.UpdatedAt,
 		}
 
 		result = append([]*dto.GetAllNotebookResponses{&res}, result...)
+		ids = append(ids, notebook.Id)
+	}
+
+	notes, err := c.noteRepository.GetByNotebookIds(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := 0; i < len(result); i++ {
+		for j := 0; j < len(notes); j++ {
+			if notes[j].NotebookId == result[i].Id {
+				result[i].Notes = append(result[i].Notes, &dto.GetAllNotebookResponsesNotes{
+					Id:        notes[j].Id,
+					Title:     notes[j].Title,
+					Content:   notes[j].Content,
+					CreatedAt: notes[j].CreatedAt,
+					UpdatedAt: notes[j].UpdatedAt,
+				})
+			}
+		}
 	}
 
 	return result, nil
@@ -131,12 +154,18 @@ func (c *notebookService) Delete(ctx context.Context, id uuid.UUID) error {
 	defer tx.Rollback(ctx)
 
 	notebookRepo := c.notebookRepository.UsingTx(ctx, tx)
+	noteRepo := c.noteRepository.UsingTx(ctx, tx)
 
 	err = notebookRepo.DeleteById(ctx, id)
 	if err != nil {
 		return err
 	}
 	err = notebookRepo.NullifyParentById(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	err = noteRepo.DeleteByNotebookId(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -168,6 +197,6 @@ func (c *notebookService) MoveNotebook(ctx context.Context, req *dto.MoveNoteboo
 	}
 
 	return &dto.MoveNotebookResponse{
-		Id:req.Id,
+		Id: req.Id,
 	}, nil
 }

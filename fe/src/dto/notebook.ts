@@ -4,6 +4,15 @@ export interface getAllNotebookResponses{
     parent_id?:string|null;
     created_at: Date;
     update_at: Date;
+    notes: GetAllNotebookResponsesNotes[];
+}
+
+export interface GetAllNotebookResponsesNotes{
+   id:string;
+   title:string;
+   content:string;
+   created_at:Date;
+   update_at:Date|null;
 }
 
 export interface CreateNotebookRequest{

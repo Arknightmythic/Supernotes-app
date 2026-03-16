@@ -24,21 +24,29 @@ type ShowNotebookResponse struct {
 }
 
 type UpdateNotebookRequest struct {
-	Id        uuid.UUID  `json:"id" validate:"required"`
-	Name      string     `json:"name"`
+	Id   uuid.UUID `json:"id" validate:"required"`
+	Name string    `json:"name"`
 }
 
 type UpdateNotebookResponse struct {
-	Id        uuid.UUID  `json:"id"`
+	Id uuid.UUID `json:"id"`
 }
 
 type MoveNotebookRequest struct {
-	Id        uuid.UUID  `json:"id"`
-	ParentId  *uuid.UUID `json:"parent_id"`
+	Id       uuid.UUID  `json:"id"`
+	ParentId *uuid.UUID `json:"parent_id"`
 }
 
-type MoveNotebookResponse struct{
+type MoveNotebookResponse struct {
 	Id uuid.UUID `json:"id"`
+}
+
+type GetAllNotebookResponsesNotes struct {
+	Id        uuid.UUID  `json:"id"`
+	Title     string     `json:"title"`
+	Content   string     `json:"content"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 type GetAllNotebookResponses struct {
@@ -47,4 +55,6 @@ type GetAllNotebookResponses struct {
 	ParentId  *uuid.UUID `json:"parent_id"`
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
+
+	Notes []*GetAllNotebookResponsesNotes `json:"notes"`
 }

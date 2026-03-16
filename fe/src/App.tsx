@@ -18,7 +18,7 @@ import { AppConfig } from "./config/config";
 
 export default function App() {
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
-  const [notes, setNotes] = useState<Note[]>(mockNotes);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNotebook, setSelectedNotebook] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -44,9 +44,26 @@ export default function App() {
         id:notebook.id,
         name:notebook.name,
         parentId:notebook.parent_id ?? null,
-        createdAt:notebook.created_at,
-        updatedAt:notebook.update_at ?? notebook.created_at,
+        createdAt:new Date(notebook.created_at),
+        updatedAt:new Date(notebook.update_at ?? notebook.created_at),
       })));
+      const notes = data.data.data.reduce<Note[]>(
+        (currentNotes, notebook) => {
+          return[
+            ...currentNotes,
+            ...notebook.notes.map((note) => ({
+              id: note.id,
+              title: note.title,
+              content: note.content,
+              notebookId: notebook.id,
+              createdAt: new Date(note.created_at),
+              updatedAt: new Date(note.update_at ?? note.created_at),
+            }))
+          ]
+        },
+        []
+      )
+      setNotes(notes);
     };
 
   useEffect(() => {

@@ -151,7 +151,7 @@ export default function App() {
     );
     
     const request: moveNoteRequest = {
-      NotebookId: targetNotebookId
+      notebook_id: targetNotebookId
     }
     await axios.put<BaseResponse<moveNoteResponse>>(`${AppConfig.baseUrl}/api/note/v1/${noteId}/move`, {request})
 

@@ -19,8 +19,8 @@ export interface updateNoteResponse{
 }
 
 
-export interface moveNoteRequest{
-    NotebookId: string;
+export interface moveNoteRequest {
+  notebook_id: string;
 }
 
 export interface moveNoteResponse{

@@ -1,18 +1,18 @@
 export interface getAllNotebookResponses{
     id: string;
     name: string;
-    parent_id?:string|null;
+    parent_id?: string | null;
     created_at: Date;
-    update_at: Date;
-    notes: GetAllNotebookResponsesNotes[];
+    updated_at: Date; // Ubah dari update_at ke updated_at
+    notes: GetAllNotebookResponsesNotes[] | null; // Tambahkan | null
 }
 
 export interface GetAllNotebookResponsesNotes{
-   id:string;
-   title:string;
-   content:string;
-   created_at:Date;
-   update_at:Date|null;
+   id: string;
+   title: string;
+   content: string;
+   created_at: Date;
+   updated_at: Date | null; // Ubah dari update_at ke updated_at
 }
 
 export interface CreateNotebookRequest{

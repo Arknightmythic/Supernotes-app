@@ -30,22 +30,19 @@ func main() {
 
 	db := database.ConnectDB(os.Getenv("DB_CONNECTION_STRING"))
 
-	watermillLogger:=watermill.NewStdLogger(false,false)
-	
-	pubSub:=gochannel.NewGoChannel(gochannel.Config{}, watermillLogger)
-	
-	publisherService:=service.NewPublisherService(
-		"embed-note-content",
-		pubSub,
-	)
+	watermillLogger := watermill.NewStdLogger(false, false)
 
-
-	consumerService := service.NewConsumerService(pubSub,"embed-note-content")
+	pubSub := gochannel.NewGoChannel(gochannel.Config{}, watermillLogger)
 
 	exampleRepository := repository.NewExampleRepository(db)
 	notebookRepository := repository.NewNotebookRepository(db)
 	noteRepository := repository.NewNoteRepository(db)
 
+	publisherService := service.NewPublisherService(
+		os.Getenv("EMBED_NOTE_CONTENT_TOPIC_NAME"),
+		pubSub,
+	)
+	consumerService := service.NewConsumerService(pubSub, os.Getenv("EMBED_NOTE_CONTENT_TOPIC_NAME"), noteRepository)
 	exampleService := service.NewExampleService(exampleRepository)
 	notebookService := service.NewNotebookService(notebookRepository, noteRepository, db)
 	noteService := service.NewNoteService(noteRepository, publisherService)
@@ -59,11 +56,9 @@ func main() {
 	notebookController.RegisterRoutes(api)
 	noteController.RegisterRoutes(api)
 
-
-
 	err := consumerService.Consume(context.Background())
 
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
 

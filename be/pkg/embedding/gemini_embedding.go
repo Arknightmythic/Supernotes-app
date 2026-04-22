@@ -1,5 +1,13 @@
 package embedding
 
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+)
+
 type EmbeddingRequestContentPart struct {
 	Text string `json:"text"`
 }
@@ -14,18 +22,18 @@ type EmbbedingRequest struct {
 	TaskType string                  `json:"task_type"`
 }
 
-type EmbeddingResponseEmbedding struct{
+type EmbeddingResponseEmbedding struct {
 	Values []float32 `json:"values"`
 }
 
-type EmbeddingResponse struct{
+type EmbeddingResponse struct {
 	Embbeding EmbeddingResponseEmbedding `json:"embedding"`
 }
 
 func GetGeminiEmbedding(
 	apiKey string,
 	text string,
-)(*EmbeddingResponse, error){
+) (*EmbeddingResponse, error) {
 	geminiReq := EmbbedingRequest{
 		Model: "gemini-embedding-001",
 		Content: EmbeddingRequestContent{
@@ -40,7 +48,7 @@ func GetGeminiEmbedding(
 
 	geminiReqJson, err := json.Marshal(geminiReq)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	req, err := http.NewRequest(
@@ -50,7 +58,7 @@ func GetGeminiEmbedding(
 	)
 
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -59,21 +67,23 @@ func GetGeminiEmbedding(
 	client := &http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	resByte, err := io.ReadAll(res.Body)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	if res.StatusCode != http.StatusOK {
-		panic(fmt.Sprintf("error from gemini embedding api: %d, body: %s", res.StatusCode, string(resByte)))
+		return nil, fmt.Errorf("error from gemini embedding api: %d, body: %s", res.StatusCode, string(resByte))
 	}
 
 	var resEmbedding EmbeddingResponse
 	err = json.Unmarshal(resByte, &resEmbedding)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+
+	return &resEmbedding, nil
 }

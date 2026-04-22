@@ -37,12 +37,13 @@ func main() {
 	exampleRepository := repository.NewExampleRepository(db)
 	notebookRepository := repository.NewNotebookRepository(db)
 	noteRepository := repository.NewNoteRepository(db)
+	noteEmbeddingRepository := repository.NewNoteEmbeddingRepository(db)
 
 	publisherService := service.NewPublisherService(
 		os.Getenv("EMBED_NOTE_CONTENT_TOPIC_NAME"),
 		pubSub,
 	)
-	consumerService := service.NewConsumerService(pubSub, os.Getenv("EMBED_NOTE_CONTENT_TOPIC_NAME"), noteRepository)
+	consumerService := service.NewConsumerService(pubSub, os.Getenv("EMBED_NOTE_CONTENT_TOPIC_NAME"), noteRepository, noteEmbeddingRepository, notebookRepository)
 	exampleService := service.NewExampleService(exampleRepository)
 	notebookService := service.NewNotebookService(notebookRepository, noteRepository, db)
 	noteService := service.NewNoteService(noteRepository, publisherService)

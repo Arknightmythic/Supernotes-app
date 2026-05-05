@@ -4,8 +4,10 @@ import (
 	"ai-notetaking-be/internal/dto"
 	"ai-notetaking-be/internal/entity"
 	"ai-notetaking-be/internal/repository"
+	"ai-notetaking-be/pkg/embedding"
 	"context"
 	"encoding/json"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,17 +19,20 @@ type INoteService interface {
 	Update(ctx context.Context, req *dto.UpdateNoteRequest) (*dto.UpdateNoteResponse, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	MoveNote(ctx context.Context, req *dto.MoveNoteRequest) (*dto.MoveNoteResponse, error)
+	SemanticSearch(ctx context.Context, search string) (*[]dto.SemanticSearchResponse, error)
 }
 
 type noteService struct {
 	noteRepository repository.INoteRepository
+	noteEmbeddingRepository repository.INoteEmbeddingRepository
 	publisherService IPublisherService
 }
 
-func NewNoteService(noteRepository repository.INoteRepository, publisherService IPublisherService) INoteService {
+func NewNoteService(noteRepository repository.INoteRepository, publisherService IPublisherService, noteEmbeddingRepository repository.INoteEmbeddingRepository) INoteService {
 	return &noteService{
 		noteRepository: noteRepository,
 		publisherService: publisherService,
+		noteEmbeddingRepository: noteEmbeddingRepository,
 	}
 }
 
@@ -103,6 +108,21 @@ func (c *noteService) Update(ctx context.Context, req *dto.UpdateNoteRequest) (*
 	if err != nil {
 		return nil, err
 	}
+
+	payload := dto.PublishEmbedNoteMessage{
+		NoteId: note.Id,
+	}
+
+	payloadJson, err := json.Marshal(payload)
+	if  err != nil {
+		return nil,err
+	} 
+
+	err = c.publisherService.Publish(ctx, payloadJson)
+	if err != nil {
+		return nil, err
+	}
+	
 	return &dto.UpdateNoteResponse{Id: note.Id}, nil
 }
 
@@ -122,6 +142,38 @@ func (c *noteService) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (c *noteService) MoveNote(ctx context.Context, req *dto.MoveNoteRequest) (*dto.MoveNoteResponse, error) {
+	note, err := c.noteRepository.GetById(ctx, req.Id)
+
+	if err != nil{
+		return nil,err
+	}
+
+	now := time.Now()
+	note.UpdatedAt = &now
+	note.NotebookId = req.NotebookId
+	
+
+	err = c.noteRepository.Update(ctx, note)
+
+	if err != nil {
+		return  nil,err
+	}
+	return &dto.MoveNoteResponse{Id: note.Id}, nil
+}
+
+func (c *noteService) SemanticSearch(ctx context.Context, search string) (*[]dto.SemanticSearchResponse, error) {
+	embeddingRes, err :=embedding.GetGeminiEmbedding(os.Getenv("GOOGLE_GEMINI_API_KEY"), search, "RETRIEVAL_QUERY")
+	
+	if err != nil{
+		return nil, err
+	}
+
+	noteEmbeddings, err :=c.noteEmbeddingRepository.SemanticSearch(ctx, embeddingRes.Embbeding.Values)
+	
+	if err != nil{
+		return nil, err
+	}
+	
 	note, err := c.noteRepository.GetById(ctx, req.Id)
 
 	if err != nil{

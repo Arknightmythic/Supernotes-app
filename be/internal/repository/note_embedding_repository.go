@@ -67,14 +67,23 @@ func (n *noteEmbeddingRepository)DeleteByNoteId(ctx context.Context, noteId uuid
 }
 
 func (n *noteEmbeddingRepository) SemanticSearch(ctx context.Context, embeddingValues []float32)([]*entity.NoteEmbedding, error) {
+
+	threshold := 0.4 
+
 	rows, err := n.db.Query(
 		ctx,
-		`SELECT id, document, note_id FROM note_embedding WHERE is_deleted = false ORDER BY 2-(embedding_value <=> $1) DESC LIMIT 5`,
+		`SELECT id, document, note_id 
+		 FROM note_embedding 
+		 WHERE is_deleted = false 
+		 AND (embedding_value <=> $1) < $2 -- Memfilter dokumen yang tidak relevan
+		 ORDER BY embedding_value <=> $1 ASC -- Diubah menggunakan ASC karena Cosine Distance semakin kecil = semakin mirip
+		 LIMIT 5`,
 		pgvector.NewVector(embeddingValues),
+		threshold,
 	)
 		
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	res := make([]*entity.NoteEmbedding, 0)

@@ -45,8 +45,8 @@ func main() {
 	)
 	consumerService := service.NewConsumerService(pubSub, os.Getenv("EMBED_NOTE_CONTENT_TOPIC_NAME"), noteRepository, noteEmbeddingRepository, notebookRepository, db)
 	exampleService := service.NewExampleService(exampleRepository)
-	notebookService := service.NewNotebookService(notebookRepository, noteRepository, db)
-	noteService := service.NewNoteService(noteRepository, publisherService)
+	notebookService := service.NewNotebookService(notebookRepository, noteRepository, noteEmbeddingRepository, publisherService, db)
+	noteService := service.NewNoteService(noteRepository, publisherService, noteEmbeddingRepository, db)
 
 	exampleController := controller.NewExampleController(exampleService)
 	notebookController := controller.NewNotebookController(notebookService)

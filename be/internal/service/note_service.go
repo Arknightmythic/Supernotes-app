@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type INoteService interface {
@@ -19,20 +20,22 @@ type INoteService interface {
 	Update(ctx context.Context, req *dto.UpdateNoteRequest) (*dto.UpdateNoteResponse, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	MoveNote(ctx context.Context, req *dto.MoveNoteRequest) (*dto.MoveNoteResponse, error)
-	SemanticSearch(ctx context.Context, search string) (*[]dto.SemanticSearchResponse, error)
+	SemanticSearch(ctx context.Context, search string) ([]*dto.SemanticSearchResponse, error)
 }
 
 type noteService struct {
 	noteRepository repository.INoteRepository
 	noteEmbeddingRepository repository.INoteEmbeddingRepository
 	publisherService IPublisherService
+	db *pgxpool.Pool
 }
 
-func NewNoteService(noteRepository repository.INoteRepository, publisherService IPublisherService, noteEmbeddingRepository repository.INoteEmbeddingRepository) INoteService {
+func NewNoteService(noteRepository repository.INoteRepository, publisherService IPublisherService, noteEmbeddingRepository repository.INoteEmbeddingRepository, db *pgxpool.Pool) INoteService {
 	return &noteService{
 		noteRepository: noteRepository,
 		publisherService: publisherService,
 		noteEmbeddingRepository: noteEmbeddingRepository,
+		db: db,
 	}
 }
 
@@ -133,10 +136,27 @@ func (c *noteService) Delete(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	err = c.noteRepository.Delete(ctx, id)
+	tx, err := c.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
 
+	noteRepository := c.noteRepository.UsingTx(ctx, tx)
+	noteEmbeddingRepository := c.noteEmbeddingRepository.UsingTx(ctx, tx)
+	err = noteRepository.Delete(ctx, id)
 	if err != nil {
 		return  err
+	}
+
+	err = noteEmbeddingRepository.DeleteByNoteId(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -158,10 +178,25 @@ func (c *noteService) MoveNote(ctx context.Context, req *dto.MoveNoteRequest) (*
 	if err != nil {
 		return  nil,err
 	}
+
+	payload := dto.PublishEmbedNoteMessage{
+		NoteId: note.Id,
+	}
+
+	payloadJson, err := json.Marshal(payload)
+	if  err != nil {
+		return nil,err
+	} 
+
+	err = c.publisherService.Publish(ctx, payloadJson)
+	if err != nil {
+		return nil, err
+	}
+
 	return &dto.MoveNoteResponse{Id: note.Id}, nil
 }
 
-func (c *noteService) SemanticSearch(ctx context.Context, search string) (*[]dto.SemanticSearchResponse, error) {
+func (c *noteService) SemanticSearch(ctx context.Context, search string) ([]*dto.SemanticSearchResponse, error) {
 	embeddingRes, err :=embedding.GetGeminiEmbedding(os.Getenv("GOOGLE_GEMINI_API_KEY"), search, "RETRIEVAL_QUERY")
 	
 	if err != nil{
@@ -173,23 +208,36 @@ func (c *noteService) SemanticSearch(ctx context.Context, search string) (*[]dto
 	if err != nil{
 		return nil, err
 	}
+
+	ids := make([]uuid.UUID,0)
+
+	for _, noteEmbedding := range noteEmbeddings{
+		ids = append(ids, noteEmbedding.NoteId)
+	}
 	
-	note, err := c.noteRepository.GetById(ctx, req.Id)
+	notes, err := c.noteRepository.GetByIds(ctx, ids)
 
 	if err != nil{
 		return nil,err
 	}
 
-	now := time.Now()
-	note.UpdatedAt = &now
-	note.NotebookId = req.NotebookId
-	
+	response := make([]*dto.SemanticSearchResponse, 0)
 
-	err = c.noteRepository.Update(ctx, note)
-
-	if err != nil {
-		return  nil,err
+	for _, noteEmbeding := range noteEmbeddings{
+		for _, note := range notes{
+			if noteEmbeding.NoteId == note.Id {
+				response = append(response, &dto.SemanticSearchResponse{
+					Id: note.Id,
+					Title: note.Title,
+					Content: note.Content,
+					NotebookId: note.NotebookId,
+					CreatedAt: note.CreatedAt,
+					UpdatedAt: note.UpdatedAt,
+				})
+			}
+		}
 	}
-	return &dto.MoveNoteResponse{Id: note.Id}, nil
+
+	return response, nil
 }
 
